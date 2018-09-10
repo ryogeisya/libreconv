@@ -5,9 +5,11 @@ require "tmpdir"
 require "spoon"
 
 module Libreconv
-
   def self.convert(source, target, soffice_command = nil, convert_to = nil, opts = {})
     Converter.new(source, target, soffice_command, convert_to, opts).convert
+  end
+
+  class TimeoutError < ::Timeout::Error
   end
 
   class Converter
@@ -15,7 +17,8 @@ module Libreconv
 
     def initialize(source, target, soffice_command = nil, convert_to = nil,
       timeout: 180,
-      thread_id: nil
+      thread_id: nil,
+      raise_timeout_error: false
     )
       @source = source
       @target = target
@@ -25,6 +28,8 @@ module Libreconv
       @current_thread_id = thread_id
       @timeout_command = nil
       @timeout = (timeout || 180).to_s
+      @raise_timeout_error = raise_timeout_error
+
       determine_soffice_command
       determine_timeout_command
       check_source_type
@@ -46,6 +51,10 @@ module Libreconv
         pid = Spoon.spawnp(*cmd)
         Process.waitpid(pid)
         $stdout.reopen orig_stdout
+        if @raise_timeout_error && !$?.nil? && $?.exitstatus == 124
+          raise ::Libreconv::TimeoutError, "Convert program is timeout."
+        end
+
         target_tmp_file = "#{target_path}/#{File.basename(@source, ".*")}.#{File.basename(@convert_to, ":*")}"
         FileUtils.cp target_tmp_file, @target
       }
