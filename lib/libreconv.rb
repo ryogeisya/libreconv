@@ -13,12 +13,16 @@ module Libreconv
   class Converter
     attr_accessor :soffice_command
 
-    def initialize(source, target, soffice_command = nil, convert_to = nil, timeout: 180)
+    def initialize(source, target, soffice_command = nil, convert_to = nil,
+      timeout: 180,
+      thread_id: nil
+    )
       @source = source
       @target = target
       @soffice_command = soffice_command
       @convert_to = convert_to || "pdf"
 
+      @current_thread_id = thread_id
       @timeout_command = nil
       @timeout = (timeout || 180).to_s
       determine_soffice_command
@@ -38,7 +42,8 @@ module Libreconv
       orig_stdout = $stdout.clone
       $stdout.reopen File.new('/dev/null', 'w')
       Dir.mktmpdir { |target_path|
-        pid = Spoon.spawnp(@timeout_command, @timeout, @soffice_command, "--headless", "--convert-to", @convert_to, @source, "--outdir", target_path)
+        cmd = [@timeout_command, @timeout, @soffice_command, "--headless", "--convert-to", @convert_to, @source, "--outdir", target_path, user_installation_env].compact
+        pid = Spoon.spawnp(*cmd)
         Process.waitpid(pid)
         $stdout.reopen orig_stdout
         target_tmp_file = "#{target_path}/#{File.basename(@source, ".*")}.#{File.basename(@convert_to, ":*")}"
@@ -77,6 +82,11 @@ module Libreconv
       return if URI(@source).scheme == "http" && Net::HTTP.get_response(URI(@source)).is_a?(Net::HTTPSuccess) #http
       return if URI(@source).scheme == "https" && Net::HTTP.get_response(URI(@source)).is_a?(Net::HTTPSuccess) #https
       raise IOError, "Source (#{@source}) is neither a file nor an URL."
+    end
+
+    def user_installation_env
+      return nil if @current_thread_id.nil?
+      "-env:UserInstallation=file://#{Dir.tmpdir}/libreconv_#{@current_thread_id}/"
     end
   end
 end
