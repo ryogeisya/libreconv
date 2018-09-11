@@ -12,6 +12,9 @@ module Libreconv
   class TimeoutError < ::Timeout::Error
   end
 
+  class ForceExitError < ::StandardError
+  end
+
   class Converter
     attr_accessor :soffice_command
 
@@ -51,8 +54,13 @@ module Libreconv
         pid = Spoon.spawnp(*cmd)
         Process.waitpid(pid)
         $stdout.reopen orig_stdout
-        if @raise_timeout_error && !$?.nil? && [124, 137].include?($?.exitstatus)
-          raise ::Libreconv::TimeoutError, "Convert program is timeout."
+        if @raise_timeout_error && !$?.nil?
+          case $?.exitstatus)
+          when 124
+            raise ::Libreconv::TimeoutError, "Convert program is timeout."
+          when 137
+            raise ::Libreconv::ForceExitError, "Convert program is killed forcely"
+          end
         end
 
         target_tmp_file = "#{target_path}/#{File.basename(@source, ".*")}.#{File.basename(@convert_to, ":*")}"
