@@ -55,7 +55,7 @@ module Libreconv
         Process.waitpid(pid)
         $stdout.reopen orig_stdout
         if @raise_timeout_error && !$?.nil?
-          case $?.exitstatus)
+          case $?.exitstatus
           when 124
             raise ::Libreconv::TimeoutError, "Convert program is timeout."
           when 137
