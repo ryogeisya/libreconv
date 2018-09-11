@@ -51,7 +51,7 @@ module Libreconv
         pid = Spoon.spawnp(*cmd)
         Process.waitpid(pid)
         $stdout.reopen orig_stdout
-        if @raise_timeout_error && !$?.nil? && $?.exitstatus == 124
+        if @raise_timeout_error && !$?.nil? && [124, 137].include?($?.exitstatus)
           raise ::Libreconv::TimeoutError, "Convert program is timeout."
         end
 
